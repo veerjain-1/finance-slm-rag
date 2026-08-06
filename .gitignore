@@ -1,0 +1,12 @@
+venv/
+__pycache__/
+*.pyc
+.DS_Store
+.env
+data/*.json
+data/*.csv
+models/
+runs/
+slm_finance_model/
+venv/
+data/
