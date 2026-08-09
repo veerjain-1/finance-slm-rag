@@ -9,8 +9,11 @@ class FinanceChatbotRAG:
         self, 
         model_path="../training/slm_finance_model",
         vector_db_path="../data_pipeline/data/faiss_index",
-        base_model="TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+        base_model="TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+        max_history=3
     ):
+        self.conversation_history = []
+        self.max_history = max_history
         print("🧠 Initializing SLM...")
         # Determine if we should load fine-tuned model or fallback to base
         load_path = model_path if os.path.exists(model_path) else base_model
@@ -55,11 +58,19 @@ class FinanceChatbotRAG:
         context = self.retrieve_context(query)
         print(f"🔍 Retrieved Context:\n{context}\n" if context else "🔍 No context retrieved.\n")
         
+        # Format history
+        history_str = ""
+        if self.conversation_history:
+            history_str = "### Chat History:\n"
+            for turn in self.conversation_history:
+                history_str += f"Human: {turn['human']}\nAssistant: {turn['ai']}\n"
+            history_str += "\n"
+
         # 2. Build Prompt
         prompt = f"""### System:
-You are a highly capable financial advisor AI. Use the provided context to answer the user's question accurately. If the context does not contain the answer, rely on your general knowledge.
+You are a highly capable financial advisor AI. Use the provided context and chat history to answer the user's question accurately. If the context does not contain the answer, rely on your general knowledge.
 
-### Context:
+{history_str}### Context:
 {context}
 
 ### Human: {query}
@@ -77,6 +88,11 @@ You are a highly capable financial advisor AI. Use the provided context to answe
             outputs = self.llm_pipeline(prompt)
             response_text = outputs[0]['generated_text'].split("### Assistant:")[-1].strip()
             
+        # Save to history
+        self.conversation_history.append({"human": query, "ai": response_text})
+        if len(self.conversation_history) > self.max_history:
+            self.conversation_history.pop(0)
+
         print(f"✅ Response:\n{response_text}\n")
         return response_text
 
