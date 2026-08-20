@@ -6,6 +6,18 @@ A domain-specific PyTorch pipeline for fine-tuning Small Language Models (SLMs) 
 
 This project is structured around a complete PyTorch machine learning pipeline:
 
+```mermaid
+graph LR
+    A[(Hugging Face: finance-alpaca)] -->|Download & Parse| B[Dataset Ingestion]
+    B -->|Raw Text| C[Tokenization Pipeline]
+    C -->|Tensors| D[PyTorch Training Loop]
+    D -->|Forward/Backward| E{Hardware Acceleration}
+    E -->|MPS| F[Apple Silicon]
+    E -->|CUDA| G[Nvidia GPU]
+    D -->|Save Weights| H[(Fine-tuned SLM)]
+    H -->|Load| I[RAG Inference / Chat]
+```
+
 1. **Dataset Ingestion**: Automatically pulls and processes the `gbharti/finance-alpaca` dataset from Hugging Face.
 2. **Tokenization**: Uses `AutoTokenizer` from `transformers` to format instruction/output pairs for sequence modeling.
 3. **Training Loop**: A highly customized `Trainer` that supports genuine forward/backward gradient descent passes.
