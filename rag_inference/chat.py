@@ -10,8 +10,10 @@ class FinanceChatbotRAG:
         model_path="../training/slm_finance_model",
         vector_db_path="../data_pipeline/data/faiss_index",
         base_model="TinyLlama/TinyLlama-1.1B-Chat-v1.0",
-        max_history=3
+        max_history=3,
+        demo_mode=False
     ):
+        self.demo_mode = demo_mode
         self.conversation_history = []
         self.max_history = max_history
         print("🧠 Initializing SLM...")
@@ -81,7 +83,7 @@ You are a highly capable financial advisor AI. Use the provided context and chat
         print("🤖 Generating response...")
         
         # For demonstration to avoid downloading heavy weights if base model is used
-        if self.model.config.model_type == "llama": 
+        if self.model.config.model_type == "llama" and self.demo_mode: 
             # We skip heavy inference in demo mode
             response_text = "[Simulated LLM Output based on context]: " + context
         else:
