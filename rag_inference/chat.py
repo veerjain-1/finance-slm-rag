@@ -100,8 +100,25 @@ You are a highly capable financial advisor AI. Use the provided context and chat
 
 
 if __name__ == "__main__":
-    chatbot = FinanceChatbotRAG()
+    import argparse
+    parser = argparse.ArgumentParser(description="Finance RAG Chatbot")
+    parser.add_argument("--query", type=str, help="Single query to ask the chatbot")
+    parser.add_argument("--demo", action="store_true", help="Run in demo mode without heavy inference")
+    args = parser.parse_args()
+
+    chatbot = FinanceChatbotRAG(demo_mode=args.demo)
     
-    # Test complex finance queries
-    chatbot.generate_response("What is the 60/40 portfolio strategy?")
-    chatbot.generate_response("Explain momentum investing.")
+    if args.query:
+        chatbot.generate_response(args.query)
+    else:
+        print("\n=== Finance SLM RAG Interactive Chat ===")
+        print("Type 'quit' or 'exit' to stop.")
+        while True:
+            try:
+                user_input = input("\nYou: ")
+                if user_input.lower() in ['quit', 'exit']:
+                    break
+                chatbot.generate_response(user_input)
+            except KeyboardInterrupt:
+                break
+
