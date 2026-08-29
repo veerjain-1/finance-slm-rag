@@ -1,7 +1,10 @@
 import os
 import torch
+import logging
 from transformers import AutoModelForCausalLM, AutoTokenizer, Trainer, TrainingArguments
 from datasets import load_from_disk
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 def train_slm(
     dataset_path=os.path.join(os.path.dirname(__file__), "../data/finance_sft_dataset"),
@@ -11,7 +14,7 @@ def train_slm(
     """
     Supervised Fine-Tuning (SFT) pipeline using PyTorch and Hugging Face.
     """
-    print(f"🚀 Initializing Real SLM Training Pipeline using {model_name}")
+    logging.info(f"🚀 Initializing SLM Training Pipeline using {model_name}")
     
     # 1. Load Tokenizer & Model
     tokenizer = AutoTokenizer.from_pretrained(model_name)
@@ -19,15 +22,15 @@ def train_slm(
         tokenizer.pad_token = tokenizer.eos_token
         
     device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
-    print(f"⚙️ Using device: {device}")
+    logging.info(f"⚙️ Using device: {device}")
     
     model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype=torch.float16 if device != "cpu" else torch.float32)
     model.to(device)
     
     # 2. Load and tokenize Dataset
-    print(f"📂 Loading dataset from {dataset_path}")
+    logging.info(f"📂 Loading dataset from {dataset_path}")
     if not os.path.exists(dataset_path):
-        print(f"❌ Error: Dataset path {dataset_path} does not exist.")
+        logging.error(f"❌ Error: Dataset path {dataset_path} does not exist.")
         return
         
     dataset = load_from_disk(dataset_path)
@@ -37,7 +40,7 @@ def train_slm(
         tokens["labels"] = tokens["input_ids"].copy()
         return tokens
         
-    print("✂️ Tokenizing dataset...")
+    logging.info("✂️ Tokenizing dataset...")
     tokenized_dataset = dataset.map(tokenize_function, batched=True)
     
     # 3. Define Training Arguments
@@ -62,16 +65,16 @@ def train_slm(
     )
     
     # 5. Train
-    print("🔥 Starting ACTUAL PyTorch training loop (Forward/Backward passes)...")
+    logging.info("🔥 Starting ACTUAL PyTorch training loop (Forward/Backward passes)...")
     trainer.train() 
     
     # 6. Save final model
-    print(f"💾 Saving model to {output_dir}")
+    logging.info(f"💾 Saving model to {output_dir}")
     os.makedirs(output_dir, exist_ok=True)
     model.save_pretrained(output_dir)
     tokenizer.save_pretrained(output_dir)
     
-    print("✅ Training complete.")
+    logging.info("✅ Training complete.")
 
 if __name__ == "__main__":
     train_slm()
