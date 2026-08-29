@@ -63,5 +63,10 @@ python training/train.py
 ```
 *Warning: Running a full training loop is extremely compute and memory intensive. Ensure you have sufficient RAM available before starting.*
 
+## Troubleshooting
+
+- **CUDA/MPS Out of Memory (OOM):** If you encounter OOM errors during the `trainer.train()` phase, you can reduce the `per_device_train_batch_size` in `training/train.py` or enable gradient accumulation steps.
+- **Dataset Not Found:** Ensure you have run `python data/prepare_dataset.py` before executing the training loop.
+
 ## License
 MIT
