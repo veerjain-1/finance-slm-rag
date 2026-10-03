@@ -1,6 +1,38 @@
+import os
+import sys
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import evaluate
+from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_community.vectorstores import FAISS
+
+# Allow importing the sibling data_pipeline package when this script is run
+# directly (python evaluation/eval.py) rather than as part of an installed package.
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+from data_pipeline.build_vector_db import RAW_DOCUMENTS, build_document_chunks
+
+# Held-out question -> ground-truth source-document index pairs, matched
+# against the same `raw_documents` list used in data_pipeline/build_vector_db.py.
+# Each question is a paraphrase of its ground-truth doc so Recall@K actually
+# measures semantic retrieval instead of exact string overlap.
+RETRIEVAL_TEST_SET = [
+    {
+        "question": "What investment approach splits a portfolio 60% stocks and 40% bonds?",
+        "ground_truth_doc_index": 0,  # "60/40 Portfolio" strategy
+    },
+    {
+        "question": "What strategy looks for stocks trading below their fundamental worth?",
+        "ground_truth_doc_index": 1,  # Value investing
+    },
+    {
+        "question": "What strategy buys assets that are trending up and shorts ones trending down?",
+        "ground_truth_doc_index": 2,  # Momentum investing
+    },
+    {
+        "question": "What bond strategy avoids intermediate-term bonds in favor of short and long term?",
+        "ground_truth_doc_index": 3,  # Barbell Strategy
+    },
+]
 
 def calculate_perplexity(model, tokenizer, texts):
     """
@@ -44,15 +76,43 @@ def evaluate_bleu(predictions, references):
     results = bleu.compute(predictions=predictions, references=references)
     return results['score']
 
-def evaluate_retrieval_accuracy():
+def evaluate_retrieval_accuracy(k=2, test_set=None):
     """
-    Simulates Mean Reciprocal Rank (MRR) or Recall@K for the FAISS index.
+    Computes real Recall@K for the FAISS index built in
+    data_pipeline/build_vector_db.py: builds the same index in-memory,
+    queries it with a held-out set of (question, ground-truth-doc-index)
+    pairs, and measures the fraction of queries whose ground-truth source
+    document appears among the top-K retrieved chunks.
+
+    @param k - number of nearest-neighbor chunks to retrieve per query.
+    @param test_set - list of {"question": str, "ground_truth_doc_index": int}
+                       dicts; defaults to RETRIEVAL_TEST_SET.
+    @returns float - Recall@K in [0.0, 1.0].
     """
-    print("🎯 Calculating Retrieval Accuracy (Recall@K)...")
-    # In a real scenario, we'd query the FAISS index with a test set of questions 
-    # and check if the ground-truth document ID is in the top-K results.
-    mock_recall_at_2 = 0.85
-    return mock_recall_at_2
+    print(f"🎯 Calculating Retrieval Accuracy (Recall@{k})...")
+
+    if test_set is None:
+        test_set = RETRIEVAL_TEST_SET
+
+    if not test_set:
+        return 0.0
+
+    chunks = build_document_chunks(RAW_DOCUMENTS)
+    embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+    vector_store = FAISS.from_documents(chunks, embeddings)
+
+    hits = 0
+    for case in test_set:
+        results = vector_store.similarity_search(case["question"], k=k)
+        retrieved_doc_indices = {
+            result.metadata.get("source_doc_index") for result in results
+        }
+        if case["ground_truth_doc_index"] in retrieved_doc_indices:
+            hits += 1
+
+    recall_at_k = hits / len(test_set)
+    print(f"   => {hits}/{len(test_set)} queries retrieved their ground-truth document")
+    return recall_at_k
 
 def run_evaluation():
     print("🧪 Starting SLM Evaluation Pipeline...")
@@ -65,7 +125,7 @@ def run_evaluation():
     references = [["A 60/40 portfolio balances equities and fixed income."]]
     
     # 1. Retrieval Accuracy
-    recall = evaluate_retrieval_accuracy()
+    recall = evaluate_retrieval_accuracy(k=2)
     print(f"   => Recall@2: {recall:.2f}")
     
     # 2. BLEU Score
